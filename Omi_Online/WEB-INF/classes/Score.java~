@@ -1,0 +1,68 @@
+public class Score
+{
+	public String[] trick;
+	public int trumpSuit;
+	public int trickSuit;
+
+	public Score(String[] trick, int trump)
+	{
+		this.trick = trick;
+		this.trumpSuit = trump;	
+	}
+
+	public int winner()
+	{
+		//cards/0_1.png
+		int[][] cards = new int[4][2];
+		int winner = 0;
+		int winVal = 2;
+		boolean hasTrump = false;
+
+		for(int i = 0; i<4; i++)
+		{
+			cards[i][0] = Integer.parseInt(trick[i].charAt(6)+"");
+			if(trick[i].charAt(9) == '.')
+				cards[i][1] = Integer.parseInt(trick[i].charAt(8)+"");
+			else
+				cards[i][1] = Integer.parseInt(trick[i].charAt(8)+trick[i].charAt(9)+"");				
+			
+			if(cards[i][0] == trumpSuit)// trumpsuit
+			{
+				hasTrump = true;
+				if(cards[i][1] == 1) // trump ace
+					return i;
+				
+				if(winVal <= cards[i][1])
+				{
+					winVal = cards[i][1];
+					winner = i;
+				}
+				
+			}
+		}
+
+		if(hasTrump)
+			return winner;
+
+		//int trickSuit = cards[firstPlay-1][0];
+
+		for(int i = 0; i<4; i++)
+		{
+			if(cards[i][0] == trickSuit)
+			{
+				if(cards[i][1] == 1) 
+					return i;
+				
+				if(winVal <= cards[i][1])
+				{
+					winVal = cards[i][1];
+					winner = i;
+				}
+				
+			}
+		}
+		return winner;
+
+	}
+
+}

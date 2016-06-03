@@ -1,0 +1,212 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<style>
+div.position {
+    background-color: yellow;
+	width:80px;height:100px;padding:10px;border:1px solid #aaaaaa;
+	display:inline-block;
+}
+</style>
+
+<script src="knockout-3.4.0.js"></script>
+<script src="jquery-2.2.3.min.js"></script>
+</head>
+<body>
+
+<script>
+/*   
+   ----  JSON Structure to update the UI  ----
+   
+   Following fields should be included in the JSON string to 
+   update the view properly
+   
+    cards -> an array of card objects representing the cards 
+            in the players hand. Each card object should have 
+			an image field with the file name of the card image.
+			
+	card1 -> String showing filename of the card played by each player.
+	card2 -> String showing filename of the card played by each player.
+	card3 -> String showing filename of the card played by each player.
+    mycard ->  String showing filename of the card played by current player.
+	showHand -> Boolean value stating whether the GUI should show cards in the players hand.
+	showCards -> Boolean value stating whether the GUI should show the played cards. (card1, card2, card3, & mycard)
+	message -> The status message that should be shown.
+	
+   These are some sample JSONs to represent the user interface.
+   You should create the JSON for each player in the server and 
+   send using AJAX poling or SSE or some other way.
+   Then call the Update Function with that JSON string to update the UI.   
+*/
+</script>
+
+
+<h3>Network card game</h3>
+<span data-bind="text: message"></span> 
+
+<!--Enter game-->
+<br/>
+<div data-bind="visible: NotEntered">
+	<form id="frm">
+	  Name <input type="text" id="player"><br>
+  	<input type="button" onclick="viewModel.NotEntered(false);addPlayer(document.getElementById('player').value)" value="Enter game">
+</form>
+</div>
+
+<!--cards-->
+<div data-bind="visible: shouldShowPlayedCards">
+	<div class = "position" style = "margin-left: 110px;" >
+	<img data-bind="attr: { src: card2 }" >
+	</div>
+
+	<br/>
+	
+	<div class = "position">
+	<img data-bind="attr: { src: card1 }">
+	</div>
+
+	<div class = "position" style = "margin-left: 110px;">
+	<img data-bind="attr: { src: card3 }">
+	</div>
+
+	<br/>
+
+	<!-- Player's Card -->
+	<div class = "position" style = "margin-left: 110px;">
+	<img data-bind="attr: { src: mycard }">
+	</div>
+	
+	<div class = "position" style = "margin-left: 210px;">
+	<img data-bind="attr: { src: trumpSuit }">
+	</div>
+	
+</div> 
+<br/>
+	<div data-bind="foreach: cards , visible: shouldShowHand">
+		<img data-bind="attr: { src: image }, click: function(data, event) { PlayCard(image)}"/>
+	</div>
+<br/>
+
+<script>
+
+// This is a simple *viewmodel* - JavaScript that defines the data and behavior of your UI
+function AppViewModel() {
+    var self = this;
+    self.cards = ko.observableArray([
+        { image: 'cards/0_1.png' },
+        { image: 'cards/1_2.png' },
+        { image: 'cards/0_3.png' }
+    ])
+	self.card1 = ko.observable("cards/0_1.png");
+	self.card2 = ko.observable("cards/0_1.png");
+	self.card3 = ko.observable("cards/0_1.png");
+	self.mycard = ko.observable(null);
+	self.shouldShowHand = ko.observable(false);
+	self.shouldShowPlayedCards = ko.observable(false);	
+	self.message = ko.observable("waiting...");
+	self.trumpSuit = ko.observable("cards/spade.jpg");
+	self.NotEntered = ko.observable(true);
+}
+
+viewModel = new AppViewModel();
+ko.applyBindings(viewModel);
+
+//addPlayer
+/*respond with mycards (13)*/
+function addPlayer(player)
+{
+	var value;
+	var obj;
+	var UIjson;
+	$.ajax({
+	    type: "GET",
+	    url: "GameLogic",
+	    contentType: "application/json", 
+		dataType: 'json',
+	    data: {
+		type: "addPlayer",
+		name: JSON.stringify(player)
+	    },
+		success: function(parsed) {
+			viewModel.cards(parsed.cards);
+			if(parsed.trumpSuit == 0)
+				viewModel.trumpSuit("cards/diamond.jpg");
+			else if(parsed.trumpSuit == 1)
+				viewModel.trumpSuit("cards/club.jpg");
+			else if(parsed.trumpSuit == 2)
+				viewModel.trumpSuit("cards/Hart.jpg");
+			else if(parsed.trumpSuit == 3)
+				viewModel.trumpSuit("cards/spade.jpg");
+				
+			poll();
+	    },
+	    error: function(data) {
+		alert('error');
+    	    }
+	});
+}
+
+//cardPlayed
+/* 
+	Updating the server on players moves
+	respond with current 4 cards
+ */
+function PlayCard(card)
+{
+	var value, obj, UIjson;
+	$.ajax({
+	    type: "GET",
+	    url: "CardPlayed",
+	    contentType: "application/json", 
+		data: {
+			type: "cardPlayed",
+			card: JSON.stringify(card)
+	    },
+	    success: function(parsed) {
+			if(parsed.valid == true)
+			{	
+				viewModel.cards(parsed.cards);
+				viewModel.mycard(card);
+			}
+	    },
+	    error: function(data) {
+			alert('errorr');
+    	    }
+	});
+}
+/******************************************************/
+/*update trick state*/
+function poll() {
+		var value, obj, UIjson;
+		setTimeout(function() {
+		$.ajax({ 
+			type: "GET",
+			url: "GameLogic",
+			contentType: "application/json", 
+			data: {
+				type: "update"
+	    	},
+			dataType: "json",
+			success: function(parsed) {
+				if(parsed.shouldShowHand == true)
+				{
+					viewModel.card1(parsed.cards[0].image);
+					viewModel.card2(parsed.cards[1].image);
+					viewModel.card3(parsed.cards[2].image);
+					viewModel.message("Game started");
+				}
+				viewModel.shouldShowHand(parsed.shouldShowHand);
+				viewModel.shouldShowPlayedCards(parsed.shouldShowHand);
+				
+			},
+			error: function(data) {
+				alert('eroor');
+			},
+			complete: poll })
+   		}, 5000);
+}
+
+</script>
+
+</body>
+</html>

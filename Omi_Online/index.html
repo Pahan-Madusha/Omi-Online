@@ -1,0 +1,226 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<style>
+div.position {
+    background-color: yellow;
+	width:80px;height:100px;padding:10px;border:1px solid #aaaaaa;
+	display:inline-block;
+}
+
+div.position2 {
+    background-color: #f9e6ff;
+	width:10px;height:10px;padding:10px;border:1px solid #aaaaaa;
+	display:inline-block;
+}
+</style>
+
+<script src="knockout-3.4.0.js"></script>
+<script src="jquery-2.2.3.min.js"></script>
+</head>
+<body>
+
+<h3>Network card game</h3>
+<span data-bind="text: message"></span> 
+
+<!--Enter game-->
+<br/>
+<div data-bind="visible: NotEntered">
+	<form id="frm">
+	  Name <input type="text" id="player"><br>
+  	<input type="button" onclick="viewModel.NotEntered(false);addPlayer(document.getElementById('player').value)" value="Enter game">
+</form>
+</div>
+
+<!--cards-->
+<div data-bind="visible: shouldShowPlayedCards">
+	<div class = "position" style = "margin-left: 110px;" >
+		<img data-bind="attr: { src: card2 }" > 
+	</div>
+	<div class = "position2">
+		<span data-bind="text: score2"> </span>
+		<span data-bind="text: name2"> </span>
+	</div>
+
+	<br/>
+	
+	<div class = "position">
+		<img data-bind="attr: { src: card1 }">
+	</div>
+	<div class = "position2">
+		<span data-bind="text: score1"> </span>
+		<span data-bind="text: name1"> </span>
+	</div>
+
+	<div class = "position" style = "margin-left: 110px;">
+		<img data-bind="attr: { src: card3 }">
+	</div>
+	<div class = "position2">
+		<span data-bind="text: score3"> </span>
+		<span data-bind="text: name3"> </span>
+	</div>
+
+	<br/>
+
+	<div class = "position" style = "margin-left: 110px;">
+		<img data-bind="attr: { src: mycard }">
+	</div>
+	<div class = "position2">
+		<span data-bind="text: myscore"> </span>
+		<span data-bind="text: myname"> </span>
+	</div>
+	
+	<div class = "position" style = "margin-left: 210px;">
+	<img data-bind="attr: { src: trumpSuit }">
+	</div>
+
+	
+</div> 
+<br/>
+	<div data-bind="foreach: cards , visible: shouldShowHand">
+		<img data-bind="attr: { src: image }, click: function(data, event) { PlayCard(image)}"/>
+	</div>
+<br/>
+
+<script>
+
+// This is a simple *viewmodel* - JavaScript that defines the data and behavior of your UI
+function AppViewModel() {
+    var self = this;
+    self.cards = ko.observableArray([
+        { image: 'cards/0_1.png' },
+        { image: 'cards/1_2.png' },
+        { image: 'cards/0_3.png' }
+    ])
+	self.card1 = ko.observable("cards/0_1.png");
+	self.card2 = ko.observable("cards/0_1.png");
+	self.card3 = ko.observable("cards/0_1.png");
+	self.mycard = ko.observable(null);
+	self.shouldShowHand = ko.observable(false);
+	self.shouldShowPlayedCards = ko.observable(false);	
+	self.message = ko.observable("waiting...");
+	self.trumpSuit = ko.observable("cards/spade.jpg");
+	self.NotEntered = ko.observable(true);
+	self.score1 = ko.observable("0");
+	self.score2 = ko.observable("0");
+	self.score3 = ko.observable("0");
+	self.myscore = ko.observable("0");
+	self.name1 = ko.observable("player1");
+	self.name2 = ko.observable("player2");
+	self.name3 = ko.observable("player3");
+	self.myname = ko.observable("Me");
+}
+
+viewModel = new AppViewModel();
+ko.applyBindings(viewModel);
+
+//addPlayer
+/*respond with mycards (13)*/
+function addPlayer(player)
+{
+	var value;
+	var obj;
+	var UIjson;
+	$.ajax({
+	    type: "GET",
+	    url: "GameLogic",
+	    contentType: "application/json", 
+		dataType: 'json',
+	    data: {
+		type: "addPlayer",
+		name: JSON.stringify(player)
+	    },
+		success: function(parsed) {
+			viewModel.cards(parsed.cards);
+			if(parsed.trumpSuit == 0)
+				viewModel.trumpSuit("cards/diamond.jpg");
+			else if(parsed.trumpSuit == 1)
+				viewModel.trumpSuit("cards/club.jpg");
+			else if(parsed.trumpSuit == 2)
+				viewModel.trumpSuit("cards/Hart.jpg");
+			else if(parsed.trumpSuit == 3)
+				viewModel.trumpSuit("cards/spade.jpg");
+				
+			poll();
+	    },
+	    error: function(data) {
+		alert('error');
+    	    }
+	});
+}
+
+//cardPlayed
+/* 
+	Updating the server on players moves
+	respond with current 4 cards
+ */
+function PlayCard(card)
+{
+	var value, obj, UIjson;
+	$.ajax({
+	    type: "GET",
+	    url: "CardPlayed",
+	    contentType: "application/json", 
+		data: {
+			type: "cardPlayed",
+			card: JSON.stringify(card)
+	    },
+	    success: function(parsed) {
+			if(parsed.valid == true)
+			{	
+				viewModel.cards(parsed.cards);
+				viewModel.mycard(card);
+			}
+	    },
+	    error: function(data) {
+			alert('Game full!');
+    	    }
+	});
+}
+/******************************************************/
+/*update trick state*/
+function poll() {
+		var value, obj, UIjson;
+		setTimeout(function() {
+		$.ajax({ 
+			type: "GET",
+			url: "GameLogic",
+			contentType: "application/json", 
+			data: {
+				type: "update"
+	    	},
+			dataType: "json",
+			success: function(parsed) {
+				if(parsed.shouldShowHand == true)
+				{
+					viewModel.card1(parsed.cards[0].image);
+					viewModel.card2(parsed.cards[1].image);
+					viewModel.card3(parsed.cards[2].image);
+					viewModel.mycard(parsed.cards[3].image);
+					viewModel.score1(parsed.scores[0]);
+					viewModel.score2(parsed.scores[1]);
+					viewModel.score3(parsed.scores[2]);
+					viewModel.myscore(parsed.scores[3]);
+
+					viewModel.name1(parsed.names[0]);
+					viewModel.name2(parsed.names[1]);
+					viewModel.name3(parsed.names[2]);
+					viewModel.myname(parsed.names[3]);
+	
+				}
+				viewModel.shouldShowHand(parsed.shouldShowHand);
+				viewModel.shouldShowPlayedCards(parsed.shouldShowHand);
+				viewModel.message(parsed.message);
+				
+			},
+			error: function(data) {
+				alert('Some error occured!');
+			},
+			complete: poll })
+   		}, 1000);
+}
+
+</script>
+
+</body>
+</html>
